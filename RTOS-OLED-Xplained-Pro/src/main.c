@@ -19,19 +19,33 @@
 #define BTN_PIO_PIN 11
 #define BTN_PIO_PIN_MASK (1 << BTN_PIO_PIN)
 
+#define BZZ_PIO PIOA
+#define BZZ_PIO_ID ID_PIOA
+#define BZZ_PIO_PIN 4
+#define BZZ_PIO_PIN_MASK (1 << BZZ_PIO_PIN)
 
 
+#define NOTE_B5  988
+#define NOTE_E6  1319
 /************************************************************************/
 /* prototypes and types                                                 */
 /************************************************************************/
 
 void btn_init(void);
 void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource);
+void BZZ_init(void);
 
 /************************************************************************/
 /* rtos vars                                                            */
 /************************************************************************/
 
+volatile int seed = -1;
+
+/* Semaphore for button */
+SemaphoreHandle_t xBtnSemaphore;
+
+/* Queue with number of coins meant to be given */
+QueueHandle_t xQueueCoins;
 
 /************************************************************************/
 /* RTOS application funcs                                               */
@@ -63,7 +77,7 @@ extern void vApplicationMallocFailedHook(void) {
 /************************************************************************/
 
 void but_callback(void) {
-
+	
 }
 
 
@@ -80,11 +94,24 @@ static void task_debug(void *pvParameters) {
 		vTaskDelay(150);
 		gfx_mono_draw_filled_circle(10,10,4,0,GFX_WHOLE);
 		vTaskDelay(150);
-
 	}
 }
 
+static void task_coins(void *pvParameters){
+	for(;;){
+		if(xSemaphoreTake(xBtnSemaphore),0){
+			int a  = 1;
+			xQueueSend(xQueueCoins, &a, 10);
+		}	
+	}
+}
 
+static void task_play(void *pvParameters){
+	for(;;){
+		
+		vTaskDelay(150);
+	}
+}
 
 /************************************************************************/
 /* funcoes                                                              */
@@ -118,6 +145,11 @@ void btn_init(void) {
 	NVIC_SetPriority(BTN_PIO_ID, 4); // Prioridade 4
 }
 
+void BZZ_init(){
+	// Inicializa clock do periférico PIO responsavel pelo buzzer
+	pmc_enable_periph_clk(BTN_PIO_ID);
+	pio_configure(BZZ_PIO, PIO_OUTPUT_0, BZZ_PIO_PIN_MASK, PIO_DEFAULT);
+}
 
 void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource) {
 
@@ -162,6 +194,18 @@ static void configure_console(void) {
 	setbuf(stdout, NULL);
 }
 
+void tone(int freq, int time){
+	int per = 500000/freq;
+	int t = (freq*time)/1000;
+	
+	for(int i = 0; i <= t; i++){
+		pio_set(BZZ_PIO, BZZ_PIO_PIN_MASK);
+		delay_us(per);
+		pio_clear(BZZ_PIO,BZZ_PIO_PIN_MASK);
+		delay_us(per);
+	}
+}
+
 /************************************************************************/
 /* main                                                                 */
 /************************************************************************/
@@ -169,7 +213,7 @@ int main(void) {
 	/* Initialize the SAM system */
 	sysclk_init();
 	board_init();
-
+	
 	/* Initialize the console uart */
 	configure_console();
 	
@@ -177,7 +221,20 @@ int main(void) {
 	TASK_OLED_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create debug task\r\n");
 	}
-
+	
+	/* Attempts to create a semaphore */
+	xBtnSemaphore = xSemaphoreCreateBinary();
+	if(xBtnSemaphore == NULL)
+	printf("Falha em criar semaforo\n");
+	
+	/* Creates a Queue with 32 spaces, for integers */
+	xQueueCoins = xQueueCreate(32, sizeof(uint32_t));
+	if(xQueueCoins == NULL)
+	printf("Falha em criar a queue\n");
+	
+	
+	
+	
 	/* Start the scheduler. */
 	vTaskStartScheduler();
 

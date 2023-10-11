@@ -36,7 +36,7 @@ Filas e semáforos:
 Tasks:
 
 - `task_coins`: Task que recebe a informação que o botão foi pressionado e calcula quantas moedas o jogador vai ganhar, coloca esta informação na fila `xQueueCoins`.
-- `task_coins`: Task que reproduz o som de acordo com quantas moedas vão ser oferecidas para o jogador.
+- `task_play`: Task que reproduz o som de acordo com quantas moedas vão ser oferecidas para o jogador.
 - `task_debug`: Uma task que fica piscando uma bola no OLED, se a bolinha parar de piscar quer dizer que o código travou.
 
 Periféricos:
