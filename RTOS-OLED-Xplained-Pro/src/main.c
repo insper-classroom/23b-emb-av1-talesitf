@@ -110,6 +110,7 @@ static void task_coins(void *pvParameters){
 			printf("coins: %d\n", coins);
 			xQueueSend(xQueueCoins, &coins, 10);
 		}	
+		vTaskDelay(200);
 	}
 }
 
