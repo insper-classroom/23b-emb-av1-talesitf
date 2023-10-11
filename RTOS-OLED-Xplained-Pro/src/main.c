@@ -39,8 +39,6 @@ void tone(int freq, int time);
 /* rtos vars                                                            */
 /************************************************************************/
 
-volatile int seed = -1;
-
 /* Semaphore for button */
 SemaphoreHandle_t xBtnSemaphore;
 
@@ -99,6 +97,7 @@ static void task_debug(void *pvParameters) {
 }
 
 static void task_coins(void *pvParameters){
+	int seed = -1;
 	for(;;){
 		if(xSemaphoreTake(xBtnSemaphore,0)){
 			if(seed == -1){
