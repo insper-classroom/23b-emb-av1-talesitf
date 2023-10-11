@@ -34,7 +34,7 @@
 void btn_init(void);
 void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource);
 void BZZ_init(void);
-
+void tone(int freq, int time);
 /************************************************************************/
 /* rtos vars                                                            */
 /************************************************************************/
@@ -77,7 +77,8 @@ extern void vApplicationMallocFailedHook(void) {
 /************************************************************************/
 
 void but_callback(void) {
-	
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(xBtnSemaphore, &xHigherPriorityTaskWoken);	
 }
 
 
@@ -99,17 +100,30 @@ static void task_debug(void *pvParameters) {
 
 static void task_coins(void *pvParameters){
 	for(;;){
-		if(xSemaphoreTake(xBtnSemaphore),0){
-			int a  = 1;
-			xQueueSend(xQueueCoins, &a, 10);
+		if(xSemaphoreTake(xBtnSemaphore,0)){
+			if(seed == -1){
+				seed = rtt_read_timer_value(RTT);
+				printf("seed: %d\n",seed);
+				srand(seed);
+			}
+			uint32_t coins = rand()%3+1;
+			printf("coins: %d\n", coins);
+			xQueueSend(xQueueCoins, &coins, 10);
 		}	
 	}
 }
 
 static void task_play(void *pvParameters){
+	
+	uint32_t coins = rand()%3+1;
 	for(;;){
-		
-		vTaskDelay(150);
+		if(xQueueReceive(xQueueCoins, &coins, (TickType_t) 0)){
+			for (int i=0; i<coins; i++){
+				tone(NOTE_B5,  80);
+				tone(NOTE_E6, 640);
+			}
+		}
+		vTaskDelay(200);
 	}
 }
 
@@ -232,9 +246,17 @@ int main(void) {
 	if(xQueueCoins == NULL)
 	printf("Falha em criar a queue\n");
 	
+	if(xTaskCreate(task_coins, "coins", TASK_OLED_STACK_SIZE, NULL, TASK_OLED_STACK_PRIORITY, NULL) != pdPASS){
+		printf("Failed to create coins task");	
+	}
 	
+	if(xTaskCreate(task_play, "plays", TASK_OLED_STACK_SIZE, NULL, TASK_OLED_STACK_PRIORITY+1, NULL) != pdPASS){
+		printf("Failed to create coins task");
+	}
 	
-	
+	RTT_init(3000, 1000000,0);
+	btn_init();
+	BZZ_init();
 	/* Start the scheduler. */
 	vTaskStartScheduler();
 
